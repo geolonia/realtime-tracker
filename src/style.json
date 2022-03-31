@@ -1,0 +1,139 @@
+{
+  "version": 8,
+  "sources": {
+    "natural-earth": {
+      "type": "vector",
+      "url": "https://cdn.geolonia.com/tiles/natural-earth.json"
+    },
+    "opensky-network": {
+      "type": "geojson",
+      "data": {
+        "type": "FeatureCollection",
+        "features": []
+      },
+      "cluster": true,
+      "clusterMaxZoom": 14,
+      "clusterRadius": 70
+    },
+    "bbox": {
+      "type": "geojson",
+      "data": {
+        "type": "FeatureCollection",
+        "features": []
+      }
+    }
+  },
+  "glyphs": "https://glyphs.geolonia.com/{fontstack}/{range}.pbf",
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#222222"
+      }
+    },
+    {
+      "id": "boundary",
+      "type": "line",
+      "source": "natural-earth",
+      "source-layer": "admin",
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "rgba(255, 255, 255, 0.2)",
+        "line-width": 1
+      }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "natural-earth",
+      "source-layer": "water",
+      "filter": [
+        "==",
+        "$type",
+        "Polygon"
+      ],
+      "paint": {
+        "fill-color": "#0E335C"
+      }
+    },
+    {
+      "id": "bbox",
+      "type": "fill",
+      "source": "bbox",
+      "paint": {
+        "fill-color": "rgba(0, 0, 0, 0.2)"
+      }
+    },
+    {
+      "id": "opensky-network-airplanes",
+      "type": "symbol",
+      "source": "opensky-network",
+      "paint": {
+        "text-color": "#FFFFFF",
+        "text-halo-color": "#000000",
+        "text-halo-width": 1,
+        "text-translate": [
+          "interpolate", ["linear"], ["zoom"],
+          5, ["literal", [0, 5]],
+          14, ["literal", [0, 35]]
+        ]
+      },
+      "layout": {
+        "icon-image": "icon",
+        "icon-size": [
+          "interpolate", ["linear"], ["zoom"],
+          5, 0.05,
+          14, 0.3
+        ],
+        "icon-rotate": ["get", "degree"],
+        "text-field": [
+          "case",
+          ["==", false, ["to-boolean", ["get", "callsign"]]], ["get", "country"], ["concat", ["get", "callsign"], "\n", ["get", "country"]]
+        ],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": [
+          "interpolate", ["linear"], ["zoom"],
+          5, 8,
+          14, 12
+        ],
+        "text-anchor": "top",
+        "text-max-width": 18,
+        "text-allow-overlap": false
+      }
+    },
+    {
+      "id": "clusters",
+      "type": "circle",
+      "source": "opensky-network",
+      "filter": ["has", "point_count"],
+      "paint": {
+        "circle-radius": [
+          "interpolate", ["linear"], ["get", "point_count"],
+          10, 20,
+          1000, 40
+        ],
+        "circle-color": "#990000",
+        "circle-opacity": 1.0
+      }
+    },
+    {
+      "id": "cluster-count",
+      "type": "symbol",
+      "source": "opensky-network",
+      "filter": ["has", "point_count"],
+      "paint": {
+        "text-color": "#FFFFFF"
+      },
+      "layout": {
+        "text-field": "{point_count_abbreviated}",
+        "text-size": 14,
+        "text-font": ["Noto Sans Regular"]
+      }
+    }
+  ]
+}

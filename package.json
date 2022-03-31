@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@mapbox/tilebelt": "^1.0.2",
     "@testing-library/jest-dom": "^5.16.3",
     "@testing-library/react": "^12.1.4",
     "@testing-library/user-event": "^13.5.0",
@@ -14,11 +15,12 @@
     "react-dom": "^18.0.0",
     "react-scripts": "5.0.0",
     "typescript": "^4.6.3",
+    "uuid": "^8.3.2",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "react-scripts build && rm -fr docs && mv build docs",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
@@ -39,5 +41,10 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@types/mapbox__tilebelt": "^1.0.0",
+    "@types/uuid": "^8.3.4",
+    "sass": "^1.49.10"
   }
 }
