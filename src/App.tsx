@@ -28,6 +28,9 @@ const App = () => {
   }
 
   React.useEffect(() => {
+    if (!uid) {
+      return
+    }
 
     ws.addEventListener('open', () => {
       console.log('WebSocket opened')
@@ -101,11 +104,16 @@ const App = () => {
                 'fill-color': 'rgba(255, 0, 0, 0.1)',
               }
             });
+
+            if (uid !== payload.uid) {
+
+            }
+            map.fitBounds(bbox)
           }
         }
       })
     })
-  }, [mapContainer])
+  }, [mapContainer, uid])
 
   React.useEffect(() => {
     if (resolution && uid && location && location.coords) {
