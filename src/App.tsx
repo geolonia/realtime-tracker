@@ -61,7 +61,7 @@ const App = () => {
       ws.addEventListener('message', (message) => {
         const rawPayload = JSON.parse(message.data);
         const payload = rawPayload.msg;
-        if (payload) {
+        if (payload && payload.uid && payload.tile) {
           const bbox = tilebelt.tileToBBOX(payload.tile)
           const geojson = {
             "type": "FeatureCollection",
