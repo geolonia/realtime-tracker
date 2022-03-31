@@ -56,7 +56,6 @@ const App = () => {
     map.addControl(geolocate)
 
     geolocate.on('geolocate', (data: object) => {
-      console.log(data)
       setLocation(data)
     });
 
@@ -106,9 +105,8 @@ const App = () => {
             });
 
             if (uid !== payload.uid) {
-
+              map.fitBounds(bbox)
             }
-            map.fitBounds(bbox)
           }
         }
       })
