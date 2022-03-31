@@ -14,13 +14,13 @@ declare global {
 const ws = new WebSocket('wss://api-ws.geolonia.com/dev');
 const channel = 'realtime-tracker'
 const defaultResolution = 10
+const uid = v4()
 
 const App = () => {
   const mapContainer = React.useRef(null)
   const range = React.useRef(null)
 
-  const [uid] = React.useState<string>(v4())
-  const [resolution, setResolution] = React.useState(defaultResolution)
+  const [resolution, setResolution] = React.useState<number>(defaultResolution)
   const [location, setLocation] = React.useState({} as any)
 
   const onChange = (event: React.FormEvent<HTMLInputElement>) => {
@@ -28,10 +28,6 @@ const App = () => {
   }
 
   React.useEffect(() => {
-    if (!uid) {
-      return
-    }
-
     ws.addEventListener('open', () => {
       console.log('WebSocket opened')
       ws.send(JSON.stringify({
@@ -114,10 +110,10 @@ const App = () => {
         }
       })
     })
-  }, [mapContainer, uid])
+  }, [mapContainer])
 
   React.useEffect(() => {
-    if (resolution && uid && location && location.coords) {
+    if (resolution && location && location.coords) {
       const coords = location.coords // 座標
       const tile = tilebelt.pointToTile(coords.longitude, coords.latitude, resolution) // 座標からタイル番号に変換
 
@@ -130,7 +126,7 @@ const App = () => {
         }
       }));
     }
-  }, [resolution, location, uid])
+  }, [resolution, location])
 
   return (
     <div className="App">
