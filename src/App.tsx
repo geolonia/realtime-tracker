@@ -105,7 +105,10 @@ const App = () => {
             });
 
             if (uid !== payload.uid) {
-              map.fitBounds(bbox)
+              map.fitBounds(bbox, {
+                padding: 80,
+                duration: 500,
+              })
             }
           }
         }
