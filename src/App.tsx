@@ -130,7 +130,7 @@ const App = () => {
 
   return (
     <div className="App">
-      <div id="map" ref={mapContainer} data-navigation-control="on" />
+      <div id="map" ref={mapContainer} data-navigation-control="on" data-gesture-handling="off" />
       <div className="privacy-control">1 <input ref={range} type="range" min="1" max="25" value={resolution} onChange={onChange} /> 25</div>
     </div>
   );
