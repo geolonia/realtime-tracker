@@ -1,3 +1,10 @@
+# Privacy-sensitive location sharing using tile numbers
+
+- Geo location button shows the current location, and shares the location information with other users via WebSocket.
+- Shared information only includes tile numbers based on resolution. The tile number is calculated on the client side before transmission, therefore the no coordinates (latitude and longitude) are sent to the server.
+- By default, location information is shared at a resolution equivalent to zoom level 10 (approximately 25 km to 37 km per side in Japan). Resolution can be adjusted using the bar at the bottom of the page.
+- If the bar value is set to 25 (rightmost), the resolution of the shared location information is around 1.5 meters.
+
 # タイル番号を利用したプライバシーに配慮した位置情報の共有
 
 https://geolonia.github.io/realtime-tracker/
