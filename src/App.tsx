@@ -92,11 +92,11 @@ const App = () => {
             });
 
             map.addLayer({
-              'id': payload.uid,
+              'id': `layer-${payload.uid}`,
               'type': 'fill',
               'source': payload.uid,
               'paint': {
-                'fill-color': 'rgba(255, 0, 0, 0.1)',
+                'fill-color': 'rgba(255, 0, 0, 0.2)',
               }
             });
 
@@ -106,6 +106,10 @@ const App = () => {
                 duration: 500,
               })
             }
+
+            map.on('click', `layer-${payload.uid}`, (event: any) => {
+              console.log(JSON.stringify(event.features[0], null, ' '))
+            })
           }
         }
       })
@@ -131,7 +135,7 @@ const App = () => {
   return (
     <div className="App">
       <div id="map" ref={mapContainer} data-navigation-control="on" data-gesture-handling="off" />
-      <div className="privacy-control">1 <input ref={range} type="range" min="1" max="25" value={resolution} onChange={onChange} /> 25</div>
+      <div className="privacy-control"><input ref={range} type="range" min="1" max="25" value={resolution} onChange={onChange} /></div>
     </div>
   );
 }
