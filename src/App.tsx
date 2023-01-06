@@ -1,17 +1,35 @@
 import React from 'react';
 import tilebelt from '@mapbox/tilebelt'
+import { Space } from '@spatial-id/javascript-sdk';
 import {v4} from 'uuid'
 import './App.scss';
 
 import style from './style.json'
 
+window.Space = Space;
+
 declare global {
   interface Window {
     geolonia: any;
+    Space: typeof Space;
   }
 }
 
+const dataToGeoJSONFeature: (data: any) => GeoJSON.Feature = (data) => {
+  const space = new Space(data.tilehash);
+  return {
+    type: "Feature",
+    id: data.id,
+    properties: {
+      tilehash: data.tilehash,
+      zfxy: data.zfxy,
+    },
+    geometry: space.toGeoJSON(),
+  };
+};
+
 const ws = new WebSocket('wss://api-ws.geolonia.com/dev');
+const adminUrl = `https://api-ws-admin.geolonia.com/dev`;
 const channel = 'realtime-tracker'
 const defaultResolution = 10
 const uid = v4()
@@ -28,13 +46,14 @@ const App = () => {
   }
 
   React.useEffect(() => {
-    ws.addEventListener('open', () => {
+    const wsOpenEvent = () => {
       console.log('WebSocket opened')
       ws.send(JSON.stringify({
         action: "subscribe",
         channel: channel,
       }));
-    })
+    };
+    ws.addEventListener('open', wsOpenEvent);
 
     const map = new window.geolonia.Map({
       container: mapContainer.current,
@@ -55,78 +74,77 @@ const App = () => {
       setLocation(data)
     });
 
-    map.on('load', () => {
-      ws.addEventListener('message', (message) => {
-        const rawPayload = JSON.parse(message.data);
-        const payload = rawPayload.msg;
-        if (payload && payload.uid && payload.tile) {
-          const bbox = tilebelt.tileToBBOX(payload.tile)
-          const geojson = {
-            "type": "FeatureCollection",
-            "features": [{
-              "type": "Feature",
-              "properties": {},
-              "geometry": {
-                "type": "Polygon",
-                "coordinates": [
-                  [
-                    [bbox[0], bbox[1]],
-                    [bbox[2], bbox[1]],
-                    [bbox[2], bbox[3]],
-                    [bbox[0], bbox[3]],
-                    [bbox[0], bbox[1]]
-                  ]
-                ]
-              }
-            }]
-          }
+    let features: GeoJSON.Feature[] = [];
 
-          const source = map.getSource(payload.uid)
+    const wsMessageListener = (message: MessageEvent<string>) => {
+      const data = JSON.parse(message.data);
+      if (!data.id || !data.tilehash) { return; }
 
-          if (source) {
-            source.setData(geojson)
-          } else {
-            map.addSource(payload.uid, {
-              type: 'geojson',
-              data: geojson,
-            });
+      const newFeature = dataToGeoJSONFeature(data);
+      features = [
+        ...features.filter((feat) => feat.id !== data.id),
+        newFeature,
+      ];
 
-            map.addLayer({
-              'id': `layer-${payload.uid}`,
-              'type': 'fill',
-              'source': payload.uid,
-              'paint': {
-                'fill-color': 'rgba(255, 0, 0, 0.2)',
-              }
-            });
+      const source = map.getSource('users');
+      source.setData({
+        type: "FeatureCollection", features,
+      });
 
-            if (uid !== payload.uid) {
-              map.fitBounds(bbox, {
-                padding: 80,
-                duration: 500,
-              })
-            }
+      if (uid !== data.id) {
+        map.fitBounds(newFeature.geometry, {
+          padding: 80,
+          duration: 500,
+        });
+      }
+    }
 
-            map.on('click', `layer-${payload.uid}`, (event: any) => {
-              console.log(JSON.stringify(event.features[0], null, ' '))
-            })
-          }
+    map.on('load', async () => {
+      const initialDataResp = await fetch(`${adminUrl}/channels/${channel}/messages`);
+      const initialDataJson = await initialDataResp.json();
+      console.log(initialDataJson);
+
+      features = initialDataJson.data.map((data: any) => {
+        return dataToGeoJSONFeature(data);
+      });
+
+      map.addSource('users', {
+        type: 'geojson',
+        data: { type: "FeatureCollection", features },
+      });
+      map.addLayer({
+        'id': `users-fill`,
+        'type': 'fill',
+        'source': 'users',
+        'paint': {
+          'fill-color': 'rgba(255, 0, 0, 0.2)',
         }
-      })
+      });
+
+      ws.addEventListener('message', wsMessageListener);
     })
-  }, [mapContainer])
+
+    return () => {
+      ws.removeEventListener('open', wsOpenEvent);
+      ws.removeEventListener('message', wsMessageListener);
+    };
+  }, [mapContainer]);
 
   React.useEffect(() => {
     if (resolution && location && location.coords) {
-      const coords = location.coords // 座標
+      const coords = location.coords; // 座標
       const tile = tilebelt.pointToTile(coords.longitude, coords.latitude, resolution) // 座標からタイル番号に変換
+      const space = new Space({ lng: coords.longitude, lat: coords.latitude }, resolution);
 
       ws.send(JSON.stringify({
         action: "broadcast",
         channel: channel,
+        id: uid,
+        tilehash: space.tilehash,
+        ttl: 300,
         message: {
-          uid: uid,
-          tile: tile // タイル番号のみを送信している
+          tile: tile, // タイル番号のみを送信している
+          // tilehash: space.tilehash,
         }
       }));
     }

@@ -5,6 +5,7 @@
   "homepage": "./",
   "dependencies": {
     "@mapbox/tilebelt": "^1.0.2",
+    "@spatial-id/javascript-sdk": "github:spatial-id/javascript-sdk",
     "@testing-library/jest-dom": "^5.16.3",
     "@testing-library/react": "^12.1.4",
     "@testing-library/user-event": "^13.5.0",
