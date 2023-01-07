@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import tilebelt from '@mapbox/tilebelt'
 import { Space } from '@spatial-id/javascript-sdk';
 import {v4} from 'uuid'
@@ -23,29 +23,33 @@ const dataToGeoJSONFeature: (data: any) => GeoJSON.Feature = (data) => {
     properties: {
       tilehash: data.tilehash,
       zfxy: data.zfxy,
+      ttl: data.ttl,
     },
     geometry: space.toGeoJSON(),
   };
 };
 
-const ws = new WebSocket('wss://api-ws.geolonia.com/dev');
+const WS_URL = 'wss://api-ws.geolonia.com/dev';
 const adminUrl = `https://api-ws-admin.geolonia.com/dev`;
 const channel = 'realtime-tracker'
-const defaultResolution = 10
+const DEFAULT_RESOLUTION = 10
 const uid = v4()
 
 const App = () => {
-  const mapContainer = React.useRef(null)
-  const range = React.useRef(null)
+  const mapContainer = useRef(null);
+  const range = useRef(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
-  const [resolution, setResolution] = React.useState<number>(defaultResolution)
-  const [location, setLocation] = React.useState({} as any)
+  const [resolution, setResolution] = useState<number>(DEFAULT_RESOLUTION)
+  const [location, setLocation] = useState({} as any)
 
-  const onChange = (event: React.FormEvent<HTMLInputElement>) => {
+  const onChange = useCallback((event: React.FormEvent<HTMLInputElement>) => {
     setResolution(Number(event.currentTarget.value))
-  }
+  }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
+    const ws = new WebSocket(WS_URL);
+
     const wsOpenEvent = () => {
       console.log('WebSocket opened')
       ws.send(JSON.stringify({
@@ -54,6 +58,7 @@ const App = () => {
       }));
     };
     ws.addEventListener('open', wsOpenEvent);
+    wsRef.current = ws;
 
     const map = new window.geolonia.Map({
       container: mapContainer.current,
@@ -78,23 +83,29 @@ const App = () => {
 
     const wsMessageListener = (message: MessageEvent<string>) => {
       const data = JSON.parse(message.data);
-      if (!data.id || !data.tilehash) { return; }
+      if (data.id && data.tilehash) {
+        const newFeature = dataToGeoJSONFeature(data);
+        features = [
+          ...features.filter((feat) => feat.id !== data.id),
+          newFeature,
+        ];
 
-      const newFeature = dataToGeoJSONFeature(data);
-      features = [
-        ...features.filter((feat) => feat.id !== data.id),
-        newFeature,
-      ];
+        const source = map.getSource('users');
+        source.setData({
+          type: "FeatureCollection", features,
+        });
 
-      const source = map.getSource('users');
-      source.setData({
-        type: "FeatureCollection", features,
-      });
-
-      if (uid !== data.id) {
-        map.fitBounds(newFeature.geometry, {
-          padding: 80,
-          duration: 500,
+        if (uid !== data.id) {
+          map.fitBounds(newFeature.geometry, {
+            padding: 80,
+            duration: 500,
+          });
+        }
+      } else if (data.msg === "pong" && data.now) {
+        features = features.filter((feat) => feat.properties?.ttl >= data.now);
+        const source = map.getSource('users');
+        source.setData({
+          type: "FeatureCollection", features,
         });
       }
     }
@@ -122,32 +133,58 @@ const App = () => {
       });
 
       ws.addEventListener('message', wsMessageListener);
-    })
+    });
+
+    let pingTimeout: number;
+    const ping = () => {
+      ws.send(JSON.stringify({action: "ping"}));
+      pingTimeout = window.setTimeout(ping, 30_000);
+    };
+    pingTimeout = window.setTimeout(ping, 30_000);
 
     return () => {
       ws.removeEventListener('open', wsOpenEvent);
       ws.removeEventListener('message', wsMessageListener);
+      if (typeof pingTimeout !== 'undefined') {
+        window.clearTimeout(pingTimeout);
+      }
+      ws.close();
     };
   }, [mapContainer]);
 
-  React.useEffect(() => {
-    if (resolution && location && location.coords) {
-      const coords = location.coords; // 座標
-      const tile = tilebelt.pointToTile(coords.longitude, coords.latitude, resolution) // 座標からタイル番号に変換
-      const space = new Space({ lng: coords.longitude, lat: coords.latitude }, resolution);
-
-      ws.send(JSON.stringify({
-        action: "broadcast",
-        channel: channel,
-        id: uid,
-        tilehash: space.tilehash,
-        ttl: 300,
-        message: {
-          tile: tile, // タイル番号のみを送信している
-          // tilehash: space.tilehash,
-        }
-      }));
+  useEffect(() => {
+    if (!resolution || !location || !location.coords) {
+      return;
     }
+
+    const coords = location.coords; // 座標
+    const tile = tilebelt.pointToTile(coords.longitude, coords.latitude, resolution) // 座標からタイル番号に変換
+    const space = new Space({ lng: coords.longitude, lat: coords.latitude }, resolution);
+
+    let locationPingTimeout: number;
+    const locationPing = () => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          action: "broadcast",
+          channel: channel,
+          id: uid,
+          tilehash: space.tilehash,
+          ttl: 120,
+          message: {
+            tile: tile, // タイル番号のみを送信している
+            // tilehash: space.tilehash,
+          }
+        }));
+      }
+      locationPingTimeout = window.setTimeout(locationPing, 60_000);
+    };
+    locationPing();
+
+    return () => {
+      if (typeof locationPingTimeout !== 'undefined') {
+        window.clearTimeout(locationPingTimeout);
+      }
+    };
   }, [resolution, location])
 
   return (
